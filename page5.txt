@@ -1,0 +1,97 @@
+1st 
+import numpy as np
+import pandas as pd
+from sklearn.cluster import AgglomerativeClustering
+from scipy.spatial.distance import euclidean
+from random import sample
+from sklearn.metrics import silhouette_score
+import matplotlib.pyplot as plt
+class CureAlgorithm:
+    def __init__(self, n_clusters=2, sample_size=100, refine_iterations=5):
+        self.n_clusters = n_clusters
+        self.sample_size = sample_size
+        self.refine_iterations = refine_iterations
+        self.cluster_centers_ = None
+    def fit(self, X):
+        sample_indices = sample(range(len(X)), min(len(X), self.sample_size))
+        clusters = X[sample_indices]
+        while len(clusters) > self.n_clusters:
+            clusterer = AgglomerativeClustering(n_clusters=len(clusters) // 2, linkage='ward')
+            cluster_labels = clusterer.fit_predict(clusters)
+            representatives = []
+            for label in np.unique(cluster_labels):
+                cluster_points = clusters[cluster_labels == label]
+                distances = np.array([euclidean(point, cluster_points.mean(axis=0)) for point in cluster_points])
+                representative_idx = np.argmax(distances)
+                representatives.append(cluster_points[representative_idx])
+            clusters = representatives
+        for _ in range(self.refine_iterations):
+            nearest_cluster_idx = np.argmin(np.array([[euclidean(point, center) for center in clusters] for point in X]), axis=1)
+            new_clusters = []
+            for i in range(len(clusters)):
+                new_cluster_points = X[nearest_cluster_idx == i]
+                new_clusters.append(new_cluster_points.mean(axis=0))
+            clusters = new_clusters
+        self.cluster_centers_ = np.array(clusters)
+    def predict(self, X):
+        if self.cluster_centers_ is None:
+            raise Exception("Model not fitted yet.")
+        return np.argmin(np.array([[euclidean(point, center) for center in self.cluster_centers_] for point in X]), axis=1)
+dataset = pd.read_csv(r"C:\Users\Downloads\diabetes.csv")
+X = dataset.drop(columns=['Outcome']).values
+cure = CureAlgorithm(n_clusters=2, sample_size=100, refine_iterations=5)
+cure.fit(X)
+labels = cure.predict(X)
+silhouette_avg = silhouette_score(X, labels)
+print("Average Silhouette Score:", silhouette_avg)
+plt.scatter(X[:, 0], X[:, 1], c=labels, cmap='viridis', alpha=0.5)
+plt.scatter(cure.cluster_centers_[:, 0], cure.cluster_centers_[:, 1], c='red', marker='x', label='Cluster Centers')
+plt.xlabel('Feature 1')
+plt.ylabel('Feature 2')
+plt.title('Clustered Data')
+plt.legend()
+plt.show()
+for cluster_idx in range(len(cure.cluster_centers_)):
+    cluster_points = X[labels == cluster_idx]
+    print(f"Cluster {cluster_idx + 1}:")
+    print(f"Number of points: {len(cluster_points)}")
+    print(f"Mean of feature 1: {cluster_points[:, 0].mean()}")
+    print(f"Mean of feature 2: {cluster_points[:, 1].mean()}")
+    print()
+
+2nd
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
+import warnings
+df = pd.read_csv('./student_scoree.csv')
+df.head()
+X = df['hours_studied'].values.reshape(-1, 1)
+y = df['exam_scores'].values
+plt.scatter(X, y, color='blue')
+plt.title('Hours Studied vs Exam Scores')
+plt.xlabel('Hours Studied')
+plt.ylabel('Exam Scores')
+plt.show()
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+model = LinearRegression()
+model.fit(X_train, y_train)
+y_pred = model.predict(X_test)
+plt.scatter(X_test, y_test, color='blue', label='Actual')
+plt.plot(X_test, y_pred, color='red', linewidth=3, label='Predicted')
+plt.title('Simple Linear Regression Model')
+plt.xlabel('Hours Studied')
+plt.ylabel('Exam Scores')
+plt.legend()
+plt.show()
+new_hours = np.array([[12]])  # Predict for 12 hours of study
+warnings.filterwarnings("ignore")  # Suppress warnings for this example
+predicted_score = model.predict(new_hours)
+print(f"Predicted Exam Score for 12 hours of study: {predicted_score[0]:.2f}")
+mse = mean_squared_error(y_test, y_pred)
+print(f"Mean Squared Error of the model: {mse:.2f}")
+
